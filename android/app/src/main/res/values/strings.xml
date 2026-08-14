@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Jogo Perguntas</string>
+    <string name="title_activity_main">Jogo Perguntas</string>
+    <string name="package_name">com.jogoperguntas.app</string>
+    <string name="custom_url_scheme">com.jogoperguntas.app</string>
+</resources>

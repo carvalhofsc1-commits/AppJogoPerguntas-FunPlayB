@@ -1,0 +1,27 @@
+{
+  "version": "seed-0.1",
+  "questions": [
+    {
+      "id": "official:demo1",
+      "text": "O que Deus criou primeiro?",
+      "options": ["O Sol", "A terra", "Os anjos", "O universo (galaxias, planetas e demais corpos celestes)"],
+      "correctIndex": 3,
+      "points": 2,
+      "theme": "Histórias Bíblicas",
+      "sourceRef": "Demo",
+      "source": "official",
+      "difficulty": "Fácil"
+    },
+    {
+      "id": "official:demo2",
+      "text": "Quantos dias durou a chuva do Dilúvio nos dias de Nóe?",
+      "options": ["21 dias", "365 dias (um ano inteiro)", "40 dias", "120 dias (quatro meses)"],
+      "correctIndex": 3,
+      "points": 2,
+      "theme": "Histórias Bíblicas",
+      "sourceRef": "Demo",
+      "source": "official",
+      "difficulty": "Fácil"
+    }
+  ]
+}
