@@ -55,8 +55,8 @@ export default function Register() {
     if (clean.length < 3) { setNicknameStatus('idle'); return; }
     setNicknameStatus('checking');
     setSuggestions([]);
-    const { data } = await supabase!.from('players').select('id').eq('nickname', clean).maybeSingle();
-    if (data) {
+    const { data: available } = await supabase!.rpc('nickname_available', { p_nickname: clean });
+    if (available === false) {
       setNicknameStatus('taken');
       setSuggestions(generateSuggestions(clean));
     } else {
