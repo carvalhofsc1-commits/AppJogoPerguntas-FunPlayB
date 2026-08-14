@@ -31,6 +31,49 @@ function loadSettings(): GameSettings {
   return DEFAULT_SETTINGS;
 }
 
+/* ── Fila local de perguntas respondidas pendentes de sincronizar ──
+   O registro de "pergunta respondida" no banco é feito em segundo plano
+   (fire-and-forget) para não travar o jogo. Se a rede falhar nesse
+   momento, sem essa fila a pergunta nunca ficaria marcada como
+   respondida e poderia reaparecer numa partida futura — mesmo tendo
+   sido genuinamente respondida. Por isso ela também é gravada aqui,
+   de forma síncrona e local, sobrevivendo a queda de rede, fechamento
+   do app ou reload — até ser confirmada no banco. */
+function pendingAnsweredKey(playerId: string) {
+  return `funplayb_pending_answered_${playerId}`;
+}
+
+function getPendingAnswered(playerId: string): string[] {
+  try {
+    const raw = localStorage.getItem(pendingAnsweredKey(playerId));
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function addPendingAnswered(playerId: string, questionId: string) {
+  try {
+    const current = getPendingAnswered(playerId);
+    if (!current.includes(questionId)) {
+      current.push(questionId);
+      localStorage.setItem(pendingAnsweredKey(playerId), JSON.stringify(current));
+    }
+  } catch { /* localStorage indisponível — segue sem persistência local extra */ }
+}
+
+function removePendingAnswered(playerId: string, questionIds: string[]) {
+  try {
+    const toRemove = new Set(questionIds);
+    const remaining = getPendingAnswered(playerId).filter(id => !toRemove.has(id));
+    if (remaining.length > 0) {
+      localStorage.setItem(pendingAnsweredKey(playerId), JSON.stringify(remaining));
+    } else {
+      localStorage.removeItem(pendingAnsweredKey(playerId));
+    }
+  } catch { /**/ }
+}
+
 
 /* ── Cronômetro Neon Ring ────────────────────────────────── */
 function AnimClock({ seconds, total, warning }: { seconds: number; total: number; warning: boolean }) {
@@ -917,6 +960,23 @@ export default function Play() {
 
       const answeredSet = new Set((answeredRows ?? []).map((r: any) => r.question_id));
 
+      // Inclui pendências locais ainda não confirmadas no banco — proteção
+      // contra falha de rede numa partida anterior deste mesmo dispositivo
+      // (ver comentário de getPendingAnswered) — e tenta sincronizá-las agora.
+      if (mode === 'solo') {
+        const pending = getPendingAnswered(session.player_id);
+        pending.forEach(id => answeredSet.add(id));
+        if (pending.length > 0) {
+          console.log('[Play] Sincronizando', pending.length, 'pendência(s) de partida(s) anterior(es)');
+          const rows = pending.map(qId => ({ player_id: session.player_id, question_id: qId }));
+          supabase!.from('answered_questions').upsert(rows, { onConflict: 'player_id,question_id' })
+            .then(({ error }) => {
+              if (!error) removePendingAnswered(session.player_id, pending);
+              else console.error('[Play] Falha ao sincronizar pendências antigas:', error);
+            });
+        }
+      }
+
       const stats: Record<string, { total: number; available: number }> = {};
       const pool = (allQs ?? []).map((q: any) => {
         const themeName = q.theme?.name ?? '';
@@ -1151,24 +1211,30 @@ export default function Play() {
       console.warn('[markAnswered] SKIPPED — mode:', mode, 'session:', !!session);
       return;
     }
-    // Rastreia localmente para o batch-save em finishGame
+    // Rastreia localmente para o batch-save em finishGame, e na fila
+    // persistente (localStorage) até a gravação no banco ser confirmada —
+    // ver comentário de pendingAnsweredKey/getPendingAnswered acima.
     answeredLocalRef.current.add(questionId);
+    addPendingAnswered(session.player_id, questionId);
 
-    // Tenta salvar com retry automático (iOS Safari pode falhar na primeira tentativa de rede)
-    const { error } = await supabase.from('answered_questions').upsert(
-      { player_id: session.player_id, question_id: questionId },
-      { onConflict: 'player_id,question_id' }
-    );
-    if (error) {
-      // Retry silencioso após 1s
-      await new Promise(r => setTimeout(r, 1000));
-      const retry = await supabase.from('answered_questions').upsert(
+    const trySave = () =>
+      supabase!.from('answered_questions').upsert(
         { player_id: session.player_id, question_id: questionId },
         { onConflict: 'player_id,question_id' }
       );
-      if (retry.error) {
-        console.error('[markAnswered] ERRO ao salvar questionId (após retry):', questionId, retry.error);
-      }
+
+    let { error } = await trySave();
+    let attempt = 0;
+    while (error && attempt < 3) {
+      attempt++;
+      await new Promise(r => setTimeout(r, 1000 * attempt)); // backoff: 1s, 2s, 3s
+      ({ error } = await trySave());
+    }
+
+    if (error) {
+      console.error('[markAnswered] Falhou após retries — mantida na fila local para sincronizar na próxima partida:', questionId, error);
+    } else {
+      removePendingAnswered(session.player_id, [questionId]);
     }
   }, [session, mode, supabase]);
 
@@ -1455,8 +1521,9 @@ export default function Play() {
           .from('answered_questions')
           .upsert(rows, { onConflict: 'player_id,question_id' });
         if (error) {
-          console.error('[finishGame] Erro no batch-save de answered_questions:', error);
+          console.error('[finishGame] Erro no batch-save de answered_questions (fica na fila local para a próxima partida):', error);
         } else {
+          removePendingAnswered(session.player_id, chunk);
           console.log(`[finishGame] Batch-save OK: ${chunk.length} perguntas salvas.`);
         }
       }
