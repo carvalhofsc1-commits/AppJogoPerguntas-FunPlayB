@@ -17,6 +17,8 @@ export default function Profile() {
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
   const [showDelete, setShowDelete] = useState(false);
+  const [deletePin, setDeletePin] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     if (!session || !supabase) return;
@@ -79,7 +81,18 @@ export default function Profile() {
 
   const handleDelete = async () => {
     if (!session || !supabase) return;
-    await supabase.from('players').delete().eq('id', session.player_id);
+    setDeleteError('');
+    if (deletePin.length !== 4) return setDeleteError('Digite seu PIN de 4 dígitos para confirmar');
+
+    const { data, error: rpcErr } = await supabase.rpc('delete_own_account', {
+      p_player_id: session.player_id,
+      p_pin: deletePin,
+    });
+
+    if (rpcErr || data === 'unauthorized') return setDeleteError('PIN incorreto');
+    if (data === 'has_dependencies') return setDeleteError('Não é possível excluir: sua conta possui perguntas/temas vinculados.');
+    if (data !== 'ok') return setDeleteError('Erro ao excluir conta. Tente novamente.');
+
     logout();
     navigate('/welcome', { replace: true });
   };
@@ -217,9 +230,23 @@ export default function Profile() {
       {showDelete && (
         <div className="confirm-modal">
           <p>⚠️ Tem certeza? Essa ação é irreversível.</p>
+          <div className="form-group">
+            <label className="form-label" style={{ fontSize: '0.75rem' }}>Digite seu PIN para confirmar</label>
+            <input
+              type="password"
+              inputMode="numeric"
+              maxLength={4}
+              className="form-input pin-input"
+              value={deletePin}
+              onChange={e => setDeletePin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="• • • •"
+              autoFocus
+            />
+          </div>
+          {deleteError && <p className="form-error">{deleteError}</p>}
           <div className="confirm-actions">
             <button className="btn-danger" onClick={handleDelete}>Sim, excluir</button>
-            <button className="btn-secondary" onClick={() => setShowDelete(false)}>Cancelar</button>
+            <button className="btn-secondary" onClick={() => { setShowDelete(false); setDeletePin(''); setDeleteError(''); }}>Cancelar</button>
           </div>
         </div>
       )}

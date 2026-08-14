@@ -145,13 +145,25 @@ export default function Users() {
   }
 
   async function handleDeleteUser(u: Player) {
-    if (!supabase) return;
+    if (!supabase || !session) return;
     if (!confirm(`Deseja realmente DELETAR o usuário "${u.nickname}"? Esta ação não pode ser desfeita.`)) return;
-    
+
+    const adminPin = prompt('Confirme seu PIN de admin para continuar:');
+    if (!adminPin) return;
+
     setUpdatingId(u.id);
-    const { error } = await supabase.from('players').delete().eq('id', u.id);
-    if (error) {
-      alert('Não é possível deletar o usuário pois ele possui vínculos (perguntas, temas, etc.). Por favor, INATIVE-O em vez de deletar.\nDetalhes: ' + error.message);
+    const { data, error } = await supabase.rpc('admin_delete_player', {
+      p_admin_identifier: session.nickname,
+      p_admin_pin: adminPin,
+      p_target_player_id: u.id,
+    });
+
+    if (error || data === 'unauthorized') {
+      alert('PIN de admin incorreto.');
+    } else if (data === 'has_dependencies') {
+      alert('Não é possível deletar o usuário pois ele possui vínculos (perguntas, temas, etc.). Por favor, INATIVE-O em vez de deletar.');
+    } else if (data !== 'ok') {
+      alert('Erro ao deletar usuário.');
     } else {
       setUsers(prev => prev.filter(user => user.id !== u.id));
       alert('Usuário deletado com sucesso.');
@@ -160,29 +172,37 @@ export default function Users() {
   }
 
   async function toggleAdmin(user: Player) {
-    if (!supabase || updatingId) return;
-    
+    if (!supabase || !session || updatingId) return;
+
     const newCategory = user.category === 'admin' ? 'jogador' : 'admin';
-    const confirmMsg = newCategory === 'admin' 
+    const confirmMsg = newCategory === 'admin'
       ? `Promover "${user.nickname}" a Administrador?`
       : `Remover privilégios de Admin de "${user.nickname}"?`;
 
     if (!confirm(confirmMsg)) return;
 
-    setUpdatingId(user.id);
-    
-    const updates: any = { category: newCategory };
+    const adminPin = prompt('Confirme seu PIN de admin para continuar:');
+    if (!adminPin) return;
+
+    let adminInitials: string | null = null;
     if (newCategory === 'admin' && !user.admin_initials) {
       const initials = prompt("Digite as iniciais deste Admin (Ex: JD):", user.nickname.slice(0, 2).toUpperCase());
-      if (initials) updates.admin_initials = initials.slice(0, 3).toUpperCase();
+      if (initials) adminInitials = initials.slice(0, 3).toUpperCase();
     }
 
-    const { error } = await supabase
-      .from('players')
-      .update(updates)
-      .eq('id', user.id);
+    setUpdatingId(user.id);
 
-    if (error) {
+    const { data, error } = await supabase.rpc('admin_set_category', {
+      p_admin_identifier: session.nickname,
+      p_admin_pin: adminPin,
+      p_target_player_id: user.id,
+      p_new_category: newCategory,
+      p_admin_initials: adminInitials,
+    });
+
+    if (error || data === 'unauthorized') {
+      alert('PIN de admin incorreto.');
+    } else if (data !== 'ok') {
       alert('Erro ao atualizar usuário');
     } else {
       loadUsers();
