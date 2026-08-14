@@ -15,6 +15,8 @@ export function parseOfficialDataLine(line: string, source: Question['source'] =
   if (!campos || campos.length < 10) return null;
   const clean = (s: string) => s.replace(/"/g, '');
   const pontosValor = parseInt(clean(campos[8]), 10);
+  const correctIndex = parseInt(clean(campos[6]), 10);
+  if (Number.isNaN(pontosValor) || Number.isNaN(correctIndex)) return null;
   return {
     id: `official:${clean(campos[0])}`,
     text: clean(campos[1]),
@@ -24,7 +26,7 @@ export function parseOfficialDataLine(line: string, source: Question['source'] =
       string,
       string,
     ],
-    correctIndex: parseInt(clean(campos[6]), 10),
+    correctIndex,
     sourceRef: clean(campos[7]),
     points: pontosValor,
     theme: clean(campos[9]),

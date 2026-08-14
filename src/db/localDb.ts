@@ -153,12 +153,25 @@ export async function upsertQuestions(
   }
 }
 
+function parseQuestionPayload(payload: string): Question | null {
+  try {
+    return JSON.parse(payload) as Question;
+  } catch (e) {
+    console.error('[localDb] Payload de pergunta corrompido, ignorando linha:', e);
+    return null;
+  }
+}
+
 export async function getAllPlayable(): Promise<Question[]> {
   if (isWebDev()) {
-    return readWebStore().rows.map((r) => JSON.parse(r.payload) as Question);
+    return readWebStore().rows
+      .map((r) => parseQuestionPayload(r.payload))
+      .filter((q): q is Question => q !== null);
   }
   if (!dbNative) return [];
   const res = await dbNative.query('SELECT payload FROM questions_local', []);
   const vals = res.values ?? [];
-  return vals.map((row) => JSON.parse((row as { payload: string }).payload));
+  return vals
+    .map((row) => parseQuestionPayload((row as { payload: string }).payload))
+    .filter((q): q is Question => q !== null);
 }

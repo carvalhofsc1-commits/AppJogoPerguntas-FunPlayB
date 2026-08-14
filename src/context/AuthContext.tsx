@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return;
     const fetchBetaMsg = async () => {
       // 1. Acha o admin real (ignora o 0000...)
-      const { data: adminData } = await supabase!
+      const { data: adminData, error: adminErr } = await supabase!
         .from('players')
         .select('id')
         .eq('category', 'admin')
@@ -59,13 +59,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .limit(1)
         .maybeSingle();
 
+      if (adminErr) console.error('[fetchBetaMsg] Erro ao buscar admin:', adminErr);
+
       if (adminData) {
         // 2. Pega as configurações do admin real
-        const { data: settingsData } = await supabase!
+        const { data: settingsData, error: settingsErr } = await supabase!
           .from('game_settings')
           .select('sounds')
           .eq('player_id', adminData.id)
           .maybeSingle();
+
+        if (settingsErr) console.error('[fetchBetaMsg] Erro ao buscar game_settings:', settingsErr);
 
         if (settingsData?.sounds?.beta_message) {
           setBetaMessage(settingsData.sounds.beta_message);

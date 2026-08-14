@@ -1116,12 +1116,14 @@ export default function Play() {
     if (!q) return;
 
     // Busca o ciclo atual do tema (se não existir, considera 1)
-    const { data: cycleData } = await supabase
+    const { data: cycleData, error: cycleErr } = await supabase
       .from('theme_cycles')
       .select('cycle')
       .eq('player_id', session.player_id)
       .eq('theme_id', q.theme_id)
       .maybeSingle();
+
+    if (cycleErr) console.error('[recordAudit] Erro ao buscar theme_cycles:', cycleErr);
 
     const currentCycle = cycleData?.cycle || 1;
 
@@ -1438,9 +1440,6 @@ export default function Play() {
       }
     };
 
-    // Agora aguardamos o salvamento antes de marcar como 'done' ou fazemos em paralelo com segurança
-    saveSession();
-
     // ── GARANTIA: Batch-save de todas as perguntas respondidas nesta sessão ──
     // Isso funciona como redundância caso alguma chamada individual de markAnswered
     // tenha falhado silenciosamente por problema de rede durante o jogo.
@@ -1462,7 +1461,13 @@ export default function Play() {
         }
       }
     };
-    batchSaveAnswered();
+
+    // Roda os dois salvamentos em paralelo (fire-and-forget, cada um já loga o
+    // próprio erro). Como a navegação daqui pra frente é só troca de rota do
+    // react-router (sem reload de página), essas Promises continuam rodando
+    // em segundo plano normalmente mesmo se o usuário sair da tela de resultado
+    // — só seriam perdidas se a aba/app fosse fechado no meio do caminho.
+    Promise.all([saveSession(), batchSaveAnswered()]).catch(() => {});
   }, [score, corrects, errors, questions.length, idx, selectedLetter, skipsUsed, elimUsed, helpExtUsed, hintsUsed, themeIds, mode, session, navigate, stopTimer, settings]);
 
 
@@ -1960,7 +1965,7 @@ export default function Play() {
       recordAudit(finalLetter, isCorrect, timeSpent)
     ]).catch(err => console.error('Erro ao registrar resposta:', err));
 
-  }, [phase, selectedLetter, idx, questions, errors, stopTimer, markAnswered, playSfx, timeLeft, recordAudit, finishGame]);
+  }, [phase, selectedLetter, idx, questions, errors, stopTimer, markAnswered, playSfx, timeLeft, recordAudit, finishGame, helpsThisQuestion]);
 
 
 

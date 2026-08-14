@@ -5,7 +5,7 @@
       "id": "official:demo1",
       "text": "O que Deus criou primeiro?",
       "options": ["O Sol", "A terra", "Os anjos", "O universo (galaxias, planetas e demais corpos celestes)"],
-      "correctIndex": 3,
+      "correctIndex": 4,
       "points": 2,
       "theme": "Histórias Bíblicas",
       "sourceRef": "Demo",

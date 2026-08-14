@@ -24,7 +24,11 @@ export async function fetchAllPages<T>(
   let from = 0;
   while (true) {
     const { data, error } = await queryFn(from, from + PAGE - 1);
-    if (error || !data || data.length === 0) break;
+    if (error) {
+      console.error('[fetchAllPages] Erro ao buscar página (dados parciais retornados):', error);
+      break;
+    }
+    if (!data || data.length === 0) break;
     allData = allData.concat(data);
     if (data.length < PAGE) break;
     from += PAGE;

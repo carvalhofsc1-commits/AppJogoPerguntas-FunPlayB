@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, fetchAllPages } from '@/lib/supabase';
 
 interface SpeedRecord {
   nickname: string;
@@ -69,17 +69,27 @@ export default function Ranking() {
     const loadRanking = async () => {
       if (!supabase) return;
 
-      let sessions: any[] | null = null;
-
-      const { data, error } = await supabase
-        .from('game_sessions')
-        .select('player_id, score, correct_answers, errors, total_questions, skips, skips_used, elim_used, help_ext_used, hints_used, duration_secs, player:players(nickname)');
-
-      if (error) {
-        console.error('Erro ao carregar ranking:', error);
-      } else {
-        sessions = data;
-      }
+      // Busca paginada — game_sessions pode ultrapassar o limite padrão de
+      // 1000 linhas do Supabase, o que truncaria o ranking silenciosamente.
+      const sessions = await fetchAllPages<{
+        player_id: string;
+        score: number;
+        correct_answers: number;
+        errors: number;
+        total_questions: number;
+        skips: number;
+        skips_used: number | null;
+        elim_used: number | null;
+        help_ext_used: number | null;
+        hints_used: number | null;
+        duration_secs: number;
+        player: { nickname: string } | null;
+      }>((from, to) =>
+        supabase!
+          .from('game_sessions')
+          .select('player_id, score, correct_answers, errors, total_questions, skips, skips_used, elim_used, help_ext_used, hints_used, duration_secs, player:players(nickname)')
+          .range(from, to) as any
+      );
 
       if (sessions) {
         // ── Records de partida mais rápida gabaritada ────────

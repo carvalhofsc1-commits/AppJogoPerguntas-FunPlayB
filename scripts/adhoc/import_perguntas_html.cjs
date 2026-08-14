@@ -2,11 +2,14 @@ const fs = require('fs');
 const { createClient } = require('@supabase/supabase-js');
 const crypto = require('crypto');
 
-// COLOQUE SUAS CREDENCIAIS AQUI
-const SUPABASE_URL = 'https://hbgqgaemtjguscnpjgry.supabase.co';
-// Usa a role service_role ou anon key se a tabela permitir
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhiZ3FnYWVtdGpndXNjbnBqZ3J5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYzOTU4OTEsImV4cCI6MjA5MTk3MTg5MX0.mRtrKbZzYVfBKTZLtm28SMeQJOCfxunfTDv_OFnR71I'; // Usando anon key existente
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+const env = fs.readFileSync('.env.local', 'utf-8');
+const envVars = {};
+env.split('\n').forEach(line => {
+  const match = line.match(/^([^=]+)=(.*)$/);
+  if (match) envVars[match[1]] = match[2].trim();
+});
+
+const supabase = createClient(envVars.VITE_SUPABASE_URL, envVars.VITE_SUPABASE_ANON_KEY);
 
 async function run() {
   try {
