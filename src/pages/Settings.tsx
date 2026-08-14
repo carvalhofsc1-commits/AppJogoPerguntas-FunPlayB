@@ -237,7 +237,7 @@ export default function Settings() {
       .then(async ({ data }) => {
         if (data) {
           const { id, player_id, updated_at, ...rest } = data as any;
-          let loadedSettings = { ...DEFAULT_SETTINGS, ...rest };
+          const loadedSettings = { ...DEFAULT_SETTINGS, ...rest };
           
           try {
             const { data: globalData } = await supabase!.from('game_settings')
@@ -1368,7 +1368,7 @@ export default function Settings() {
                       { val: false, label: 'Não' },
                       { val: true, label: 'Sim' },
                     ] as const).map(s => {
-                      let currentStyle = settings.avatar_style ?? 1;
+                      const currentStyle = settings.avatar_style ?? 1;
                       const hasHat = currentStyle >= 10;
                       const hairStyle = currentStyle % 10;
                       const isSelected = hasHat === s.val;
@@ -1409,7 +1409,7 @@ export default function Settings() {
                     { val: 6, label: 'Cachos' },
                     { val: 4, label: 'Black' },
                   ] as const).map(s => {
-                    let currentStyle = settings.avatar_style ?? 1;
+                    const currentStyle = settings.avatar_style ?? 1;
                     const hasHat = currentStyle >= 10;
                     const hairStyle = currentStyle % 10;
                     const isSelected = hairStyle === s.val;

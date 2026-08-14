@@ -75,6 +75,8 @@ export function Navbar() {
       }
     }
 
+    // Precisa do if/else (em vez de ternário) para o TypeScript resolver
+    // corretamente qual das assinaturas sobrecarregadas de `navigate` usar.
     if (typeof path === 'number') {
       navigate(path);
     } else {
@@ -97,7 +99,6 @@ export function Navbar() {
       case '/users': return 'Usuários';
       case '/about': return 'Sobre';
       case '/groups': return 'Grupos';
-      case '/result': return 'Resultado';
       default: return 'FunPlayB';
     }
   };

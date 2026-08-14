@@ -1155,7 +1155,7 @@ export default function Play() {
     answeredLocalRef.current.add(questionId);
 
     // Tenta salvar com retry automático (iOS Safari pode falhar na primeira tentativa de rede)
-    let { error } = await supabase.from('answered_questions').upsert(
+    const { error } = await supabase.from('answered_questions').upsert(
       { player_id: session.player_id, question_id: questionId },
       { onConflict: 'player_id,question_id' }
     );
@@ -1523,7 +1523,7 @@ export default function Play() {
       let ttsDurationMs = 0;
 
       if (cfg.sounds?.tts_enabled && cfg.sounds?.tts_judge_answer) {
-        let defaultPhrases = isCorrect 
+        const defaultPhrases = isCorrect 
           ? ['Parabéns, você acertou!', 'Isso aí, correto!', 'Muito bem, exato!']
           : (feedbackReason === 'timeout' 
               ? ['O tempo acabou.', 'Tempo esgotado.', 'Que pena, o tempo acabou, seja mais rápido da próxima.'] 
@@ -1634,7 +1634,7 @@ export default function Play() {
       const currentText = (finalTranscript || interimTranscript).toLowerCase().trim();
       setLiveTranscript(currentText);
 
-      let transcript = currentText.replace(/[.,!?]/g, '').trim();
+      const transcript = currentText.replace(/[.,!?]/g, '').trim();
       if (!transcript) return;
       console.log('[STT Result]:', transcript);
 
@@ -1992,7 +1992,7 @@ export default function Play() {
       // Pergunta pulada NÃO É marcada como respondida no banco de dados
       const currentDiff = questions[idx].difficulty;
       const newQs = [...questions];
-      let newExtras = [...extraQuestions];
+      const newExtras = [...extraQuestions];
 
       // Tenta achar uma reserva da mesma dificuldade
       const sameDiffIdx = newExtras.findIndex(eq => eq.difficulty === currentDiff);

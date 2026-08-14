@@ -1,3 +1,4 @@
+import { Suspense, lazy } from 'react';
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -6,29 +7,40 @@ import { Navbar } from '@/components/Navbar';
 import { ReleaseNotesModal } from '@/components/ReleaseNotesModal';
 import { AppNotificationModal } from '@/components/AppNotificationModal';
 
-import Welcome from '@/pages/Welcome';
-import Login from '@/pages/Login';
-import Register from '@/pages/Register';
-import RecoverPin from '@/pages/RecoverPin';
-import Home from '@/pages/Home';
-import Profile from '@/pages/Profile';
-import Questions from '@/pages/Questions';
-import Settings from '@/pages/Settings';
+// Cada página vira o próprio chunk (code-splitting) — o bundle principal
+// deixa de carregar o código de todas as telas (Play.tsx e Questions.tsx
+// sozinhas somam mais de 5000 linhas) de uma vez só no primeiro acesso.
+const Welcome = lazy(() => import('@/pages/Welcome'));
+const Login = lazy(() => import('@/pages/Login'));
+const Register = lazy(() => import('@/pages/Register'));
+const RecoverPin = lazy(() => import('@/pages/RecoverPin'));
+const Home = lazy(() => import('@/pages/Home'));
+const Profile = lazy(() => import('@/pages/Profile'));
+const Questions = lazy(() => import('@/pages/Questions'));
+const Settings = lazy(() => import('@/pages/Settings'));
 // import Groups from '@/pages/Groups'; // OCULTO — modo grupo desativado temporariamente
-import SelectTheme from '@/pages/SelectTheme';
-import Play from '@/pages/Play';
-import Result from '@/pages/Result';
-import Ranking from '@/pages/Ranking';
-import Users from '@/pages/Users';
-import About from '@/pages/About';
+const SelectTheme = lazy(() => import('@/pages/SelectTheme'));
+const Play = lazy(() => import('@/pages/Play'));
+const Ranking = lazy(() => import('@/pages/Ranking'));
+const Users = lazy(() => import('@/pages/Users'));
+const About = lazy(() => import('@/pages/About'));
 
 import { AudioProvider } from '@/context/AudioContext';
+
+function RouteFallback() {
+  return (
+    <div className="screen-center">
+      <div className="spinner" />
+    </div>
+  );
+}
 
 /* Extrai as rotas num sub-componente para poder usar useLocation dentro do BrowserRouter */
 function AppRoutes() {
   const location = useLocation();
 
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       {/* Públicas */}
       <Route path="/welcome"     element={<Welcome />} />
@@ -51,11 +63,11 @@ function AppRoutes() {
           mesmo que a URL seja idêntica — isso reseta todo o estado do jogo sem reload,
           mantendo o AudioProvider (e seus buffers de sons) vivo */}
       <Route path="/play"          element={<ProtectedRoute><Play key={location.key} /></ProtectedRoute>} />
-      <Route path="/result"        element={<ProtectedRoute><Result /></ProtectedRoute>} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/welcome" replace />} />
     </Routes>
+    </Suspense>
   );
 }
 

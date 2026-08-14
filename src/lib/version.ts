@@ -1,6 +1,6 @@
 export const VERSION_CONFIG = {
-  version: '1.03.483',
-  build: '20260814.1423',
-  lastDeploy: '2026-08-14T14:23:54-03:00',
-  notes: 'Vários ajustes internos de robustez: correção de um bug que podia deixar de aplicar o desconto de pontos ao usar ajuda, erros do servidor deixam de ser ignorados silenciosamente, ranking corrigido para não ficar incompleto com muitas partidas registradas, e limpeza de documentação do banco de dados'
+  version: '1.03.484',
+  build: '20260814.1441',
+  lastDeploy: '2026-08-14T14:41:49-03:00',
+  notes: 'App carrega mais rápido (telas passam a carregar sob demanda em vez de tudo de uma vez), dependências de segurança atualizadas, e ferramenta de checagem de qualidade de código adicionada ao projeto'
 };

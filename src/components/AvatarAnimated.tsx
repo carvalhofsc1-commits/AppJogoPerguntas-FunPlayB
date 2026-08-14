@@ -264,7 +264,7 @@ export function AvatarAnimated({
   const m = seq ? seq[frame % seq.length] : base;
 
   // Interpretando o estilo e o chapéu com base nas dezenas
-  let normStyle = style;
+  const normStyle = style;
   const hasHat = normStyle >= 10;
   const hairStyle = normStyle % 10;
 
