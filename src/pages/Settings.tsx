@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DEFAULT_SETTINGS, type GameSettings, type VoiceProfile } from '@/types/game';
+import { calcMaxScore } from '@/lib/scoring';
 import { useAudio } from '@/context/AudioContext';
 import { VERSION_CONFIG } from '@/lib/version';
 import { AvatarAnimated, type AvatarMood } from '@/components/AvatarAnimated';
@@ -868,7 +869,7 @@ export default function Settings() {
                     <span className="settings-warning"> (Divergente de {settings.questions_per_round})</span>}
                 </p>
                 <p className="settings-hint highlight">
-                  Pontuação máxima: <strong>{(settings.qty_facil * (settings.pts_facil ?? 5)) + (settings.qty_medio * (settings.pts_medio ?? 10)) + (settings.qty_dificil * (settings.pts_dificil ?? 22))} pts</strong>
+                  Pontuação máxima: <strong>{calcMaxScore(settings)} pts</strong>
                 </p>
               </div>
             </div>

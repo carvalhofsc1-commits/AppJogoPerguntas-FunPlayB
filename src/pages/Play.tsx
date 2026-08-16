@@ -5,6 +5,7 @@ import { supabase, fetchAllPages } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { DEFAULT_SETTINGS, type GameSettings, type Question, type VoiceProfile } from '@/types/game';
 import { VERSION_CONFIG } from '@/lib/version';
+import { calcMaxScore, basePointsFor, distributeToTarget } from '@/lib/scoring';
 import { ResponsiveText } from '@/components/ResponsiveText';
 import { useAudio } from '@/context/AudioContext';
 import { AvatarAnimated } from '@/components/AvatarAnimated';
@@ -22,6 +23,12 @@ function shuffle<T>(arr: T[]): T[] {
   }
   return a;
 }
+
+/** Pergunta da rodada já com o valor de pontos NORMALIZADO para o slot que ela
+ *  ocupa — ver PARTE 3 do fix de estouro de pontuação: a soma de _roundPoints
+ *  de todas as perguntas da rodada é sempre exatamente igual a targetScore,
+ *  independente da dificuldade real das perguntas sorteadas. */
+type RoundQuestion = Question & { _roundPoints: number };
 
 function loadSettings(): GameSettings {
   try {
@@ -394,16 +401,17 @@ function getMotivationalPhrase(pct: number, totalHelps: number, errors: number):
 
 /* ── Overlay de Resultado ────────────────────────────────── */
 function ResultOverlay({
-  score, corrects, errors, total, duration, helps,
+  score, targetScore, corrects, errors, total, duration, helps,
   onClose, onRestart, onRanking, onSettings,
-  settings, diffBreakdown, abandoned, abandonedPenalty
+  settings, diffBreakdown, abandoned, abandonedPenalty, quotaWarning
 }: {
-  score: number; corrects: number; errors: number; total: number; duration: number;
+  score: number; targetScore: number; corrects: number; errors: number; total: number; duration: number;
   helps: any; onClose: () => void; onRestart: () => void; onRanking: () => void; onSettings: () => void;
   settings: GameSettings;
   diffBreakdown: { facil: { correct: number; pts: number }; medio: { correct: number; pts: number }; dificil: { correct: number; pts: number } };
   abandoned?: boolean;
   abandonedPenalty?: number;
+  quotaWarning?: string | null;
 }) {
   const { session } = useAuth();
   const { playSfx, stopSfx, stopAllSfx, initAudio } = useAudio();
@@ -479,7 +487,9 @@ function ResultOverlay({
         <p className="result-player">{session?.nickname}</p>
 
         <div className="result-score-big">
-          <span className="result-score-num">{score}</span>
+          <span className="result-score-num">
+            {score}{targetScore > 0 && <span style={{ fontSize: '0.5em', opacity: 0.7 }}> / {targetScore}</span>}
+          </span>
           <span className="result-score-lbl">pontos</span>
         </div>
         {abandoned && abandonedPenalty !== undefined && abandonedPenalty > 0 && (
@@ -553,6 +563,12 @@ function ResultOverlay({
           </div>
         )}
 
+        {quotaWarning && (
+          <p style={{ fontSize: '0.7rem', opacity: 0.6, textAlign: 'center', marginTop: '4px' }}>
+            ⚠️ {quotaWarning}
+          </p>
+        )}
+
         <div className="result-actions">
           <button className="btn-primary" onClick={onRestart}>🔄 Jogar novamente</button>
           <div style={{ display: 'flex', gap: '0.4rem', width: '100%' }}>
@@ -593,7 +609,7 @@ export default function Play() {
   const feedbackSourceRef = useRef<AudioBufferSourceNode | null>(null);
 
   /* ── Estado do jogo ──────────────────────────────────── */
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<RoundQuestion[]>([]);
   const [extraQuestions, setExtraQuestions] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -606,6 +622,9 @@ export default function Play() {
 
   /* Placar */
   const [score, setScore] = useState(0);
+  const [targetScore, setTargetScore] = useState(0);
+  const targetScoreRef = useRef(0);
+  const [roundQuotaWarning, setRoundQuotaWarning] = useState<string | null>(null);
   const [abandonedPenalty, setAbandonedPenalty] = useState(0);
   const [corrects, setCorrects] = useState(0);
   const [errors, setErrors] = useState(0);
@@ -1019,6 +1038,7 @@ export default function Play() {
       }
 
       let selected: Question[];
+      let quotaWarningMsg: string | null = null;
       if (effectiveSettings.sort_mode === 'gradativo') {
         // Embaralha TODO o pool disponível antes de separar por dificuldade
         // Isso garante que cada sessão tenha uma seleção diferente dentro de cada grupo
@@ -1040,9 +1060,23 @@ export default function Play() {
           ...byDiff.dificil.slice(0, effectiveSettings.qty_dificil),
         ];
 
+        const poolShortfall: string[] = [];
+        (['facil', 'medio', 'dificil'] as const).forEach(d => {
+          const qty = d === 'facil' ? effectiveSettings.qty_facil : d === 'medio' ? effectiveSettings.qty_medio : effectiveSettings.qty_dificil;
+          if (byDiff[d].length < qty) {
+            poolShortfall.push(`${d}: pediu ${qty}, só havia ${byDiff[d].length} disponível(is)`);
+          }
+        });
+        if (poolShortfall.length > 0) {
+          quotaWarningMsg = `Estoque insuficiente para cumprir a cota configurada (${poolShortfall.join('; ')}). A rodada foi completada com perguntas de outras dificuldades.`;
+        }
+
         if (selected.length < effectiveSettings.questions_per_round) {
           const extra = shuffledAvailable.filter(q => !selected.find(s => s.id === q.id));
           selected = [...selected, ...extra].slice(0, effectiveSettings.questions_per_round);
+          if (!quotaWarningMsg) {
+            quotaWarningMsg = `Total configurado por dificuldade (${effectiveSettings.qty_facil + effectiveSettings.qty_medio + effectiveSettings.qty_dificil}) é menor que "Total de perguntas" (${effectiveSettings.questions_per_round}). Vagas extras preenchidas com perguntas de qualquer dificuldade.`;
+          }
         }
       } else {
         selected = shuffle(available).slice(0, effectiveSettings.questions_per_round);
@@ -1058,7 +1092,22 @@ export default function Play() {
 
       console.log('[Play] pool:', pool.length, '| available:', available.length, '| selected:', selected.length);
 
-      setQuestions(selected);
+      if (quotaWarningMsg) {
+        console.warn('[Play] Cota de dificuldade não cumprida:', quotaWarningMsg);
+        setRoundQuotaWarning(quotaWarningMsg);
+      }
+
+      // PARTE 1/3 do fix de estouro de pontuação — fonte única de verdade do
+      // alvo da rodada + normalização dos pontos por pergunta sobre o sorteio
+      // REAL, garantindo que acertar tudo resulte exatamente em roundTargetScore.
+      const roundTargetScore = calcMaxScore(effectiveSettings);
+      const rawRoundPoints = selected.map(q => basePointsFor(q.difficulty, effectiveSettings));
+      const normalizedRoundPoints = distributeToTarget(rawRoundPoints, roundTargetScore);
+      const roundQuestions: RoundQuestion[] = selected.map((q, i) => ({ ...q, _roundPoints: normalizedRoundPoints[i] }));
+
+      setTargetScore(roundTargetScore);
+      targetScoreRef.current = roundTargetScore;
+      setQuestions(roundQuestions);
       setExtraQuestions(shuffle(available.filter(q => !selected.some(s => s.id === q.id))));
 
       setLoadingPhase('Preparando partida...');
@@ -1453,11 +1502,20 @@ export default function Play() {
       const questionsAnswered = idx + (selectedLetter ? 1 : 0);
       const questionsRemaining = Math.max(0, finalTotal - questionsAnswered);
       penaltyApplied = wrongPenalty * questionsRemaining;
-      if (penaltyApplied > 0) {
-        setScore(s => Math.max(0, s - penaltyApplied));
-      }
       setAbandonedPenalty(penaltyApplied);
     }
+
+    // PARTE 4 — rede de segurança final: garante que a pontuação nunca
+    // ultrapasse o alvo da rodada, mesmo que as Partes 1-3 falhem por algum
+    // caminho não previsto. Não deveria ser necessário — se acionar, é bug.
+    const preClampScore = abandoned ? Math.max(0, score - penaltyApplied) : score;
+    const roundTarget = targetScoreRef.current;
+    let finalScore = preClampScore;
+    if (roundTarget > 0 && preClampScore > roundTarget) {
+      console.warn(`[finishGame] Pontuação (${preClampScore}) excedeu o alvo da rodada (${roundTarget}) mesmo após a normalização — indica bug nas Partes 1-3. Aplicando clamp de segurança.`);
+      finalScore = roundTarget;
+    }
+    setScore(finalScore);
 
     totalTimeRef.current = Math.round((Date.now() - startTimeRef.current) / 1000);
 
@@ -1483,7 +1541,6 @@ export default function Play() {
     const saveSession = async () => {
       if (!supabase || !session) return;
       try {
-        const finalScore = abandoned ? Math.max(0, score - penaltyApplied) : score;
         const { error } = await supabase.from('game_sessions').insert({
           player_id: session.player_id,
           score: finalScore,
@@ -1997,7 +2054,10 @@ export default function Play() {
     (window as any)._lastAnswerTime = Date.now();
 
     if (isCorrect) {
-      const basePoints = q.difficulty === 'facil' ? (cfg.pts_facil ?? 5) : q.difficulty === 'medio' ? (cfg.pts_medio ?? 10) : (cfg.pts_dificil ?? 22);
+      // Pontos NORMALIZADOS do slot desta pergunta na rodada (ver PARTE 3 do fix
+      // de estouro de pontuação) — não recalcula por dificuldade aqui para não
+      // reintroduzir o estouro quando o sorteio real diverge das cotas.
+      const basePoints = q._roundPoints;
       const penaltyPct = cfg.pts_help_penalty_pct ?? 50;
       const actualPoints = helpsThisQuestion > 0 ? Math.round(basePoints * (1 - penaltyPct / 100)) : basePoints;
       setScore(s => s + actualPoints);
@@ -2074,7 +2134,10 @@ export default function Play() {
       }
 
       if (replacementQ) {
-        newQs[idx] = replacementQ;
+        // Preserva os pontos NORMALIZADOS do slot (não os da pergunta de reserva),
+        // para que a soma da rodada continue batendo exatamente em targetScore
+        // independente de qual pergunta acaba ocupando essa posição.
+        newQs[idx] = { ...replacementQ, _roundPoints: newQs[idx]._roundPoints };
         setExtraQuestions(newExtras);
         setQuestions(newQs);
       } else {
@@ -2370,7 +2433,7 @@ export default function Play() {
             {q.question_number ? `Pergunta #${q.question_number}` : `#${idx + 1}`}
             {' — '}{diffLabel[q.difficulty] ?? q.difficulty}
             {(() => {
-              const basePts = q.difficulty === 'facil' ? (cfg.pts_facil ?? 5) : q.difficulty === 'medio' ? (cfg.pts_medio ?? 10) : (cfg.pts_dificil ?? 22);
+              const basePts = q._roundPoints;
               const penaltyPct = cfg.pts_help_penalty_pct ?? 50;
               const adjustedPts = helpsThisQuestion > 0 ? Math.round(basePts * (1 - penaltyPct / 100)) : basePts;
               return helpsThisQuestion > 0
@@ -3083,6 +3146,8 @@ export default function Play() {
       {phase === 'done' && (
         <ResultOverlay
           score={score}
+          targetScore={targetScore}
+          quotaWarning={roundQuotaWarning}
           corrects={corrects}
           errors={errors}
           total={questions.length}
