@@ -18,46 +18,46 @@ export function ReleaseNotesModal() {
   const [expanded, setExpanded] = useState(false);
 
 
+  // Busca uma nota customizada (override) salva pelo admin para a versão atual.
+  // Se não houver, cai para a mensagem do commit (VERSION_CONFIG.notes).
+  const getCurrentVersionNote = async (): Promise<ReleaseNote> => {
+    try {
+      const { data } = await supabase!
+        .from('release_notes')
+        .select('*')
+        .eq('version', VERSION_CONFIG.version)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data?.notes) return data;
+    } catch (e) {
+      console.error('Erro ao buscar nota de atualização customizada', e);
+    }
+
+    return {
+      id: 'commit-note',
+      version: VERSION_CONFIG.version,
+      notes: VERSION_CONFIG.notes,
+      created_at: '',
+    };
+  };
+
   useEffect(() => {
     const checkNotes = async () => {
-      try {
-        const lastSeenVersion = localStorage.getItem('last_seen_version');
+      const lastSeenVersion = localStorage.getItem('last_seen_version');
 
-        // Se for o primeiro acesso, apenas registra a versão atual silenciosamente
-        if (!lastSeenVersion) {
-          localStorage.setItem('last_seen_version', VERSION_CONFIG.version);
-          return;
-        }
-
-        const effectiveLastSeen = lastSeenVersion;
-        if (effectiveLastSeen === VERSION_CONFIG.version) return;
-
-
-        // Busca notas de versão cuja versão seja maior que a última vista
-        // (No Supabase pode ser feito com uma query customizada ou trazendo tudo e filtrando no client)
-        const { data, error } = await supabase!
-          .from('release_notes')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error || !data || data.length === 0) {
-          // Se houver erro ou não houver notas, apenas atualiza a versão silenciosamente
-          localStorage.setItem('last_seen_version', VERSION_CONFIG.version);
-          return;
-        }
-
-        // Simples ordenação semântica (comparação de string funciona para 1.03.351 vs 1.03.350)
-        const newNotes = data.filter(note => note.version > effectiveLastSeen);
-
-        if (newNotes.length > 0) {
-          setNotes(newNotes);
-          setIsOpen(true);
-        } else {
-          localStorage.setItem('last_seen_version', VERSION_CONFIG.version);
-        }
-      } catch (e) {
-        console.error('Erro ao buscar notas de atualização', e);
+      // Se for o primeiro acesso, apenas registra a versão atual silenciosamente
+      if (!lastSeenVersion) {
+        localStorage.setItem('last_seen_version', VERSION_CONFIG.version);
+        return;
       }
+
+      if (lastSeenVersion === VERSION_CONFIG.version) return;
+
+      const note = await getCurrentVersionNote();
+      setNotes([note]);
+      setIsOpen(true);
     };
 
     if (!session) return;
@@ -67,17 +67,9 @@ export function ReleaseNotesModal() {
 
   useEffect(() => {
     const handleForceShow = async () => {
-      try {
-        const { data } = await supabase!.from('release_notes').select('*').order('created_at', { ascending: false });
-        if (data && data.length > 0) {
-          // Mostrar apenas a nota da versão atual, ou a mais recente disponível
-          const currentNotes = data.filter(n => n.version === VERSION_CONFIG.version);
-          setNotes(currentNotes.length > 0 ? currentNotes : [data[0]]);
-          setIsOpen(true);
-        }
-      } catch (e) {
-        console.error('Erro ao buscar notas forçadas:', e);
-      }
+      const note = await getCurrentVersionNote();
+      setNotes([note]);
+      setIsOpen(true);
     };
 
     window.addEventListener('show-release-notes', handleForceShow);

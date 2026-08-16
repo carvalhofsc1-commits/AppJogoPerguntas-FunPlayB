@@ -198,14 +198,26 @@ export default function Settings() {
           setGlobalMute(!!data?.sounds?.master_mute);
         });
 
-      // Busca a nota de atualização mais recente para edição
-      // (usa a mais recente ao invés de buscar pela versão exata, para não sumir ao atualizar a versão)
-      supabase.from('release_notes').select('id, notes, version').order('created_at', { ascending: false }).limit(1).maybeSingle()
-        .then(({ data }) => {
+      // A msg do commit (VERSION_CONFIG.notes) é a prioridade a cada nova versão.
+      // Se ainda não existe registro para a versão atual, grava a msg do commit
+      // automaticamente. O admin pode então editar e salvar para sobrepor.
+      supabase.from('release_notes').select('id, notes, version')
+        .eq('version', VERSION_CONFIG.version)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+        .then(async ({ data }) => {
           if (data) {
             setReleaseNoteId(data.id);
             setReleaseNoteText(data.notes);
+            return;
           }
+
+          const { data: inserted } = await supabase!
+            .from('release_notes')
+            .insert({ version: VERSION_CONFIG.version, notes: VERSION_CONFIG.notes })
+            .select('id').single();
+
+          setReleaseNoteId(inserted?.id ?? null);
+          setReleaseNoteText(VERSION_CONFIG.notes);
         });
     }
 
@@ -1528,7 +1540,7 @@ export default function Settings() {
                   <label className="settings-label">
                     Notas de Atualização (Versão atual: {VERSION_CONFIG.version})
                   </label>
-                  <p className="settings-hint">Informe aqui o que mudou nesta versão. O texto aparecerá no pop-up para todos os usuários recém-atualizados.</p>
+                  <p className="settings-hint">Por padrão, a mensagem exibida no pop-up dos jogadores é a nota do commit desta versão (pré-preenchida abaixo). Se quiser, edite o texto e salve para substituí-la.</p>
                   <div style={{ display: 'flex', gap: '8px', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
                     <button className="btn-tiny" onClick={handleSelectAllNotes} style={{ flex: 1, padding: '8px' }}>Selec. Tudo</button>
                     <button className="btn-tiny" onClick={handleCopyNotes} style={{ flex: 1, padding: '8px' }}>Copiar</button>

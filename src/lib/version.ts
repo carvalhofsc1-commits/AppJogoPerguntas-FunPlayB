@@ -1,6 +1,6 @@
 export const VERSION_CONFIG = {
-  version: '1.03.492',
-  build: '20260816.1835',
-  lastDeploy: '2026-08-16T18:35:03-03:00',
-  notes: 'correção comportamento botão som geral'
+  version: '1.03.493',
+  build: '20260816.2010',
+  lastDeploy: '2026-08-16T20:10:00-03:00',
+  notes: 'A mensagem de atualização exibida ao jogador agora é preenchida automaticamente a cada nova versão. O administrador ainda pode personalizá-la nas configurações.'
 };
