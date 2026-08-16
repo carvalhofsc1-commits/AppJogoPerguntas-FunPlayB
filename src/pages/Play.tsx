@@ -1113,9 +1113,12 @@ export default function Play() {
       setLoadingPhase('Preparando partida...');
       setLoadingProgress(100);
 
-      // Detecta se estamos em iOS/Android onde áudio exige gesto do usuário
+      // Detecta se estamos em iOS/Android onde áudio exige gesto do usuário.
+      // IMPORTANTE: isso vale mesmo com TTS desligado — é o AudioContext dos
+      // efeitos sonoros (clique, acerto, erro, tick...) que precisa desse gesto
+      // real de toque para sair do estado "suspended" no iOS, não só a narração.
       const isIOSOrMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
-      const needsGesture = isIOSOrMobile && !!effectiveSettings.sounds?.tts_enabled;
+      const needsGesture = isIOSOrMobile;
 
       if (effectiveSettings.sounds?.tts_enabled) {
         let isCancelled = false;
