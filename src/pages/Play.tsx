@@ -1762,6 +1762,18 @@ export default function Play() {
     }
   }, [isMuted]);
 
+  // Som geral desligado desliga a narração de verdade para esta partida (não só
+  // inativa o efeito) — sem isso, religar o som geral pelo ícone do topo no meio
+  // do jogo reativava a narração sozinha, mesmo o jogador só querendo os sons de
+  // volta. Muta settings.current direto (ref, não dispara re-render) porque é
+  // exatamente essa cópia que todo o resto do jogo já lê para decidir o fluxo.
+  useEffect(() => {
+    if (isMuted && settings.current.sounds?.voice_input_enabled) {
+      settings.current.sounds.voice_input_enabled = false;
+      settings.current.sounds.tts_enabled = false;
+    }
+  }, [isMuted]);
+
   const startVoiceRecognition = () => {
     // GUARD ÚNICO E CENTRALIZADO — todos os pontos de entrada da captura de voz
     // (fluxo normal, segunda chance, etc.) passam por esta função, então é aqui

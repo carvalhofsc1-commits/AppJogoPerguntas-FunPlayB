@@ -155,6 +155,17 @@ export default function SelectTheme() {
     setQuick(prev => ({ ...prev, [key]: value }));
   }, []);
 
+  /* Som geral desligado desliga a narração de verdade (não só inativa o efeito).
+     Sem isso, religar o som geral no meio de uma partida reativava a narração
+     sozinha, mesmo o jogador só querendo os sons de volta — a preferência de
+     narração ficava "lembrada" e voltava sem o jogador pedir. */
+  useEffect(() => {
+    if (isMuted && quick.voice_input_enabled) {
+      updateQuick('voice_input_enabled', false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMuted]);
+
   /* Ao mudar quantidade total de perguntas — recalcula distribuição */
   const handleQtyChange = useCallback((total: number) => {
     const { facil, medio, dificil } = calcDiffQty(total);
