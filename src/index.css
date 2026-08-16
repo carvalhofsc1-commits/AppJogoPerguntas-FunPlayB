@@ -2321,7 +2321,8 @@ h2 {
 
 /* Botão primário da home: "Jogar sozinho" (dourado). */
 .btn-home-primary {
-  background: #f5c842;
+  /* Cor original (dourado forte), guardada aqui para reverter se necessário: #f5c842 */
+  background: #fff3b8;
   color: #2d1a00;
   border: none;
   border-radius: 30px;
