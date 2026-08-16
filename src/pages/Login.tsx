@@ -35,6 +35,9 @@ export default function Login() {
 
   return (
     <div className="auth-screen">
+      {/* Moldura decorativa — puramente visual (pointer-events: none). */}
+      <div className="screen-frame" aria-hidden="true" />
+
       {/* Logo + Título — sem card */}
       <div className="login-logo-block">
         <img src="/logo.png" alt="FunPlayB" className="login-logo-img" />

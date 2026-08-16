@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { VERSION_CONFIG } from '@/lib/version';
@@ -7,6 +8,27 @@ export function SystemStatus() {
   const location = useLocation();
   const { session } = useAuth();
   const { updating, needsUpdate, forceUpdate } = usePWAUpdate();
+  const barRef = useRef<HTMLDivElement>(null);
+
+  // Publica a altura REAL da barra em --bottom-bar-height (CSS custom property
+  // global), para telas como Welcome saberem quanto descontar por baixo sem
+  // hardcode. A barra não desmonta entre rotas (só alterna entre renderizar o
+  // JSX ou `null`), por isso o efeito depende de location.pathname — refaz a
+  // medição/observação sempre que ela some ou reaparece.
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) {
+      document.documentElement.style.setProperty('--bottom-bar-height', '0px');
+      return;
+    }
+    const updateHeight = () => {
+      document.documentElement.style.setProperty('--bottom-bar-height', `${el.offsetHeight}px`);
+    };
+    updateHeight();
+    const ro = new ResizeObserver(updateHeight);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [location.pathname]);
 
   // Não exibe na tela de Play
   if (location.pathname === '/play') {
@@ -19,7 +41,7 @@ export function SystemStatus() {
   };
 
   return (
-    <div className="system-status-bar">
+    <div className="system-status-bar" ref={barRef}>
       <div className="system-status-info">
         {session && (
           <span className="system-status-user">👤 {session.nickname}</span>

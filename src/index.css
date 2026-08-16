@@ -22,6 +22,9 @@
   --green: #4ade80;
   --red: #f87171;
   --yellow: #fbbf24;
+  /* Altura real da barra fixa inferior (versão/"Atualizar"), publicada via
+     ResizeObserver em SystemStatus.tsx — 0px até o JS medir (evita salto). */
+  --bottom-bar-height: 0px;
 
   font-family: 'Outfit', system-ui, sans-serif;
   line-height: 1.5;
@@ -1608,6 +1611,33 @@ h2 {
   align-items: center;
   justify-content: space-around;
   padding: 2rem 1.5rem;
+}
+
+/* Moldura decorativa — usada em Welcome.tsx e Login.tsx (telas de acesso,
+   mesmo gradiente de fundo). Cada página inclui o próprio <div> com esta
+   classe; ela não aparece em nenhuma tela que não a inclua explicitamente.
+   Fixa na viewport real (não rola), respeita safe-area (notch/ilha
+   dinâmica/barra de gestos) por lado, escala por clamp()/max() em vez de
+   breakpoints, e limita a largura em telas grandes para não virar um
+   retângulo esticado. */
+.screen-frame {
+  --frame-gap: clamp(10px, 4vw, 16px);
+  --frame-radius: clamp(16px, 6vw, 24px);
+  --frame-max-width: 720px;
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + var(--frame-gap));
+  /* Desconta a barra fixa inferior (versão/"Atualizar") em vez de somar com a
+     safe-area — a barra já cobre essa faixa da tela, então usamos o maior dos
+     dois valores para não abrir um vão inferior desproporcional aos outros lados. */
+  bottom: calc(max(env(safe-area-inset-bottom), var(--bottom-bar-height, 0px)) + var(--frame-gap));
+  left: max(calc(env(safe-area-inset-left) + var(--frame-gap)), calc((100% - var(--frame-max-width)) / 2));
+  right: max(calc(env(safe-area-inset-right) + var(--frame-gap)), calc((100% - var(--frame-max-width)) / 2));
+  border: 2px solid rgba(255, 255, 255, 0.55);
+  border-radius: var(--frame-radius);
+  box-shadow: 0 0 24px rgba(255, 255, 255, 0.18);
+  background: transparent;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .profile-page {

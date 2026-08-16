@@ -13,6 +13,9 @@ export default function Welcome() {
 
   return (
     <div className="welcome-screen">
+      {/* Moldura decorativa — puramente visual (pointer-events: none). */}
+      <div className="screen-frame" aria-hidden="true" />
+
       {/* Logo */}
       <div className="welcome-logo">
         <img src="/logo.png" alt="FunPlayB" className="logo-img" />
