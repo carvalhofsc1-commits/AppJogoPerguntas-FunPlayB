@@ -513,49 +513,36 @@ export default function SelectTheme() {
                 </div>
               </div>
 
-              <div style={{ marginTop: '6px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '6px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '4px 10px' }}>
-                {/* Som geral — controle MESTRE. Mesmo estado do ícone 🔊 do header do jogo
+              <div style={{ marginTop: '4px', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                {/* Som geral — controle MESTRE. Mesmo ícone/estado do header do jogo
                     (AudioContext: isMuted/toggleMute, persistido em localStorage 'game_muted'). */}
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <span className="qs-lbl-mini" style={{ fontSize: '0.8rem', color: '#f5c842' }}>🔊 Som geral:</span>
-                  <label style={{ display: 'inline-flex', padding: '13px 10px', margin: '-13px -10px', cursor: 'pointer' }}>
-                    <span className="toggle-switch" style={{ transform: 'scale(0.8)', transformOrigin: 'center', margin: 0 }}>
-                      <input
-                        type="checkbox"
-                        checked={!isMuted}
-                        onChange={toggleMute}
-                      />
-                      <span className="toggle-slider" />
-                    </span>
-                  </label>
-                </span>
+                <button
+                  onClick={toggleMute}
+                  style={{ background: 'none', border: 'none', fontSize: '1.1rem', lineHeight: 1, cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                  title={isMuted ? 'Ativar som' : 'Desativar som'}
+                >
+                  {isMuted ? '🔇' : '🔊'}
+                </button>
 
                 {/* Narração — SUBORDINADA ao som geral: some o efeito (não o valor salvo)
                     quando o mestre está desligado. */}
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', opacity: isMuted ? 0.45 : 1, transition: 'opacity 0.2s' }}>
-                  <span className="qs-lbl-mini" style={{ fontSize: '0.8rem', color: '#f5c842' }}>🗣️ Narração e Respostas por Voz:</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', minWidth: 0, opacity: isMuted ? 0.45 : 1, transition: 'opacity 0.2s' }}>
+                  <span className="qs-lbl-mini" style={{ color: '#f5c842' }}>🗣️ Narração por Voz:</span>
                   <label
-                    style={{ display: 'inline-flex', padding: '13px 10px', margin: '-13px -10px', cursor: isMuted ? 'not-allowed' : 'pointer' }}
+                    className="toggle-switch"
+                    style={{ transform: 'scale(0.8)', transformOrigin: 'center', margin: 0, cursor: isMuted ? 'not-allowed' : 'pointer' }}
                     title={isMuted ? 'Ligue o som geral para usar a narração' : undefined}
                   >
-                    <span className="toggle-switch" style={{ transform: 'scale(0.8)', transformOrigin: 'center', margin: 0 }}>
-                      <input
-                        type="checkbox"
-                        checked={!!quick.voice_input_enabled}
-                        disabled={isMuted}
-                        aria-disabled={isMuted}
-                        onChange={e => updateQuick('voice_input_enabled', e.target.checked)}
-                      />
-                      <span className="toggle-slider" />
-                    </span>
+                    <input
+                      type="checkbox"
+                      checked={!!quick.voice_input_enabled}
+                      disabled={isMuted}
+                      aria-disabled={isMuted}
+                      onChange={e => updateQuick('voice_input_enabled', e.target.checked)}
+                    />
+                    <span className="toggle-slider" />
                   </label>
                 </span>
-
-                {isMuted && (
-                  <p style={{ width: '100%', margin: '2px 0 0', fontSize: '0.68rem', color: 'rgba(255,255,255,0.55)', textAlign: 'right' }}>
-                    🔈 Som geral desligado — narração fica em pausa até religar
-                  </p>
-                )}
               </div>
             </>
           )}

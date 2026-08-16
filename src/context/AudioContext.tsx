@@ -4,6 +4,10 @@ import { supabase } from '@/lib/supabase';
 
 interface AudioContextType {
   isMuted: boolean;
+  /** Espelho de isMuted em ref — leia isto (não `isMuted`) em código que pode
+   *  rodar a partir de closures/timeouts antigos (fora de handlers síncronos),
+   *  para nunca agir com um valor de mute obsoleto. */
+  isMutedRef: React.MutableRefObject<boolean>;
   toggleMute: () => void;
   playSfx: (url: string | undefined, volume?: number, loop?: boolean) => any;
   stopSfx: (source: any) => void;
@@ -254,7 +258,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AudioSystemContext.Provider value={{
-      isMuted, toggleMute, playSfx, stopSfx, stopAllSfx, preloadSfx, isPreloaded, initAudio
+      isMuted, isMutedRef, toggleMute, playSfx, stopSfx, stopAllSfx, preloadSfx, isPreloaded, initAudio
     }}>
       {children}
     </AudioSystemContext.Provider>

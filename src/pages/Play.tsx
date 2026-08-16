@@ -598,7 +598,7 @@ function ResultOverlay({
    ══════════════════════════════════════════════════════════ */
 export default function Play() {
   const { session } = useAuth();
-  const { playSfx, stopSfx, stopAllSfx, preloadSfx, isPreloaded, isMuted, toggleMute } = useAudio();
+  const { playSfx, stopSfx, stopAllSfx, preloadSfx, isPreloaded, isMuted, isMutedRef, toggleMute } = useAudio();
 
   // Garante que TODOS os sons parem ao sair da página ou ao trocar de contexto
   useEffect(() => {
@@ -1131,9 +1131,14 @@ export default function Play() {
       const isIOSOrMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
       const needsGesture = isIOSOrMobile;
 
-      if (effectiveSettings.sounds?.tts_enabled) {
+      // Som geral é o mestre: com ele desligado, a "experiência por voz" fica sem
+      // efeito nenhum, inclusive no fluxo (não só no áudio) — sem isso o jogo
+      // mostrava a contagem "3, 2, 1..." na tela e agia em modo voz silenciosamente,
+      // mesmo mutado. Lê isMutedRef (não isMuted) porque este efeito roda uma
+      // única vez (deps: []) e não pode depender do valor do isMuted na montagem.
+      if (effectiveSettings.sounds?.tts_enabled && !isMutedRef.current) {
         let isCancelled = false;
-        
+
         const playCountdown = (phrases: string[], index: number = 0) => {
           if (isCancelled) return;
           if (index >= phrases.length) {
@@ -1703,7 +1708,10 @@ export default function Play() {
 
       const shouldPause = !isCorrect && voiceProfileRef.current?.pause_on_wrong;
 
-      if (cfg.sounds?.tts_enabled && cfg.sounds?.tts_auto_next && !shouldPause) {
+      // Som geral desligado desativa o avanço automático junto — sem isso o jogo
+      // seguia sozinho para a próxima pergunta mesmo mutado (bug: comportamento
+      // de "modo voz" continuava ativo por trás, só o áudio é que sumia).
+      if (cfg.sounds?.tts_enabled && cfg.sounds?.tts_auto_next && !shouldPause && !isMuted) {
         const delayMs = (cfg.sounds?.tts_auto_next_delay || 5) * 1000;
         const autoNextTimer = setTimeout(() => {
           // Usa ref para advanceQuestion para não depender de closures e evitar loops
@@ -1712,7 +1720,7 @@ export default function Play() {
         return () => clearTimeout(autoNextTimer);
       }
     }
-  }, [phase, cfg.sounds?.tts_judge_answer, cfg.sounds?.tts_auto_next, cfg.sounds?.tts_auto_next_delay, selectedLetter, questions, idx]);
+  }, [phase, cfg.sounds?.tts_judge_answer, cfg.sounds?.tts_auto_next, cfg.sounds?.tts_auto_next_delay, selectedLetter, questions, idx, isMuted]);
 
   /* ── Tick sonoro do microfone ────────────────────────── */
   const stopMicTick = () => {
@@ -1744,7 +1752,25 @@ export default function Play() {
     micTickIntervalRef.current = setInterval(playTick, 1000);
   };
 
+  // Interrompe uma captura de voz em andamento na hora se o som geral for
+  // desligado no meio da partida — encerra o reconhecimento e fecha o popup/
+  // cronômetro do microfone (stopMicTick já zera micTimeLeft, que controla a UI).
+  useEffect(() => {
+    if (isMuted && recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch (e) {}
+      stopMicTick();
+    }
+  }, [isMuted]);
+
   const startVoiceRecognition = () => {
+    // GUARD ÚNICO E CENTRALIZADO — todos os pontos de entrada da captura de voz
+    // (fluxo normal, segunda chance, etc.) passam por esta função, então é aqui
+    // que a condição efetiva (som geral && narração) é checada, uma única vez.
+    // Lê isMutedRef.current (não isMuted) e settings.current (não `cfg`) de
+    // propósito: ambos são refs sempre atuais, imunes a closures antigas de
+    // callbacks/setTimeout que podem disparar esta função com um estado obsoleto.
+    if (isMutedRef.current || !settings.current.sounds?.voice_input_enabled) return;
+
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) return;
 
@@ -2237,8 +2263,10 @@ export default function Play() {
         }
       }, Math.max(300, soundDurationMs));
 
-      // 4. Permissão do microfone em segundo plano — sem bloquear o TTS
-      if (cfg.sounds?.voice_input_enabled) {
+      // 4. Permissão do microfone em segundo plano — sem bloquear o TTS.
+      // Mesma condição efetiva do guard de startVoiceRecognition (som geral && narração):
+      // sem som geral, não faz sentido nem pré-aquecer a permissão de microfone.
+      if (!isMutedRef.current && cfg.sounds?.voice_input_enabled) {
         navigator.mediaDevices.getUserMedia({ audio: true })
           .then(stream => {
             stream.getTracks().forEach(t => t.stop());
