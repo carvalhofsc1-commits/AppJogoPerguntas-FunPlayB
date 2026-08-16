@@ -195,6 +195,17 @@ const cancelSpeech = () => {
 
 const speak = (text: string, onStart?: () => void, onEnd?: () => void) => {
   if (typeof window !== 'undefined' && window.speechSynthesis) {
+    // SOM GERAL é o controle mestre — narração é subordinada a ele (ver
+    // AudioContext.tsx: mesma chave 'game_muted' usada pelo isMuted/toggleMute).
+    // speak() é uma função de módulo (fora de componente), por isso lê o
+    // localStorage direto em vez de useAudio().
+    if (localStorage.getItem('game_muted') === 'true') {
+      // Ainda dispara onEnd para não travar sequências que dependem dele
+      // (contagem regressiva, avanço após pulo, etc.).
+      if (onEnd) setTimeout(onEnd, 0);
+      return null;
+    }
+
     globalSpeechId++;
     const thisSpeechId = globalSpeechId;
     
